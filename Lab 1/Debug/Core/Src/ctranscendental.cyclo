@@ -1,0 +1,3 @@
+../Core/Src/ctranscendental.c:13:7:defunc	1
+../Core/Src/ctranscendental.c:24:7:firstDerivative	1
+../Core/Src/ctranscendental.c:35:7:cnewtonsMethod	4

@@ -1,0 +1,59 @@
+
+.DS_Store
+.metadata/.ide.log
+.metadata/.lock
+.metadata/.log
+.metadata/.log4j2.xml
+.metadata/.plugins/com.st.stm32cube.ide.mcu.informationcenter/2.2.0.202306231147
+.metadata/.plugins/org.eclipse.cdt.core/.log
+.metadata/.plugins/org.eclipse.cdt.core/Lab 2.1695311579170.pdom
+.metadata/.plugins/org.eclipse.cdt.core/Lab 2.language.settings.xml
+.metadata/.plugins/org.eclipse.cdt.make.core/specs.c
+.metadata/.plugins/org.eclipse.cdt.make.core/specs.cpp
+.metadata/.plugins/org.eclipse.cdt.make.ui/dialog_settings.xml
+.metadata/.plugins/org.eclipse.cdt.managedbuilder.core/spec.c
+.metadata/.plugins/org.eclipse.cdt.managedbuilder.core/spec.cpp
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.indexes/properties.index
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.location
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.markers.snap
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.syncinfo.snap
+.metadata/.plugins/org.eclipse.core.resources/.root/.indexes/history.version
+.metadata/.plugins/org.eclipse.core.resources/.root/.indexes/properties.index
+.metadata/.plugins/org.eclipse.core.resources/.root/.indexes/properties.version
+.metadata/.plugins/org.eclipse.core.resources/.root/.markers.snap
+.metadata/.plugins/org.eclipse.core.resources/.root/1.tree
+.metadata/.plugins/org.eclipse.core.resources/.safetable/org.eclipse.core.resources
+.metadata/.plugins/org.eclipse.core.resources/1.snap
+.metadata/.plugins/org.eclipse.core.runtime/.settings/com.st.stm32cube.ide.mcu.ide.oss.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.cdt.core.prj-Lab 2.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.cdt.debug.core.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.cdt.ui.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.core.resources.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.debug.core.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.debug.ui.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.ui.ide.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.ui.navigator.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.ui.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.ui.workbench.prefs
+.metadata/.plugins/org.eclipse.e4.workbench/workbench.xmi
+.metadata/.plugins/org.eclipse.ui.ide/dialog_settings.xml
+.metadata/.plugins/org.eclipse.ui.workbench/workingsets.xml
+.metadata/version.ini
+Lab 0/.project
+Lab 0/.mxproject
+Lab 0/.cproject
+Lab 0/.settings/language.settings.xml
+Lab 0/.settings/stm32cubeide.project.prefs
+Lab 1/.cproject
+Lab 1/.mxproject
+Lab 1/.project
+Lab 1/.settings/com.st.stm32cube.ide.mcu.sfrview.prefs
+Lab 1/.settings/language.settings.xml
+Lab 1/.settings/org.eclipse.core.resources.prefs
+Lab 1/.settings/stm32cubeide.project.prefs
+Lab 2/.cproject
+Lab 2/.mxproject
+Lab 2/.project
+Lab 2/.settings/language.settings.xml
+Lab 2/.settings/org.eclipse.core.resources.prefs
+Lab 2/.settings/stm32cubeide.project.prefs
