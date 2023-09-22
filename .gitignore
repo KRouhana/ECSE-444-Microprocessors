@@ -1,5 +1,7 @@
 
 .DS_Store
+.metadata
+.metadata/
 .metadata/.ide.log
 .metadata/.lock
 .metadata/.log
@@ -57,3 +59,37 @@ Lab 2/.project
 Lab 2/.settings/language.settings.xml
 Lab 2/.settings/org.eclipse.core.resources.prefs
 Lab 2/.settings/stm32cubeide.project.prefs
+.metadata/.ide.log-2023-09-21.log
+.metadata/.plugins/org.eclipse.cdt.ui/global-build.log
+.metadata/.plugins/org.eclipse.cdt.ui/Lab 2.build.log
+.metadata/.plugins/org.eclipse.core.resources/.history/28/d0890b009d58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/30/30e897329d58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/52/e0be15fd9b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/55/705c64a39c58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/5e/00a65da49b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/5f/706e1ce6b258001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/69/60d97cd89b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/6e/707ff44f9c58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/7e/107530a79b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/89/80b1cbd69c58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/96/10117bc09b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/9a/201db2605259001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/9c/006d94ad5259001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/a0/e0baec0b5559001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/a2/90d796959b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/a6/40cd133b9c58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/bf/304fb7ee9b58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/bf/50a52b8a9d58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/c9/600e9a619d58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/cb/c0e561d45259001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/df/50e453809f58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/e1/003345a65159001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/e1/c0c722925159001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.history/f4/80a7ed9a9d58001e1081920119e21987
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.indexes/af/history.index
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.indexes/bf/be/properties.index
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.indexes/bf/c4/history.index
+.metadata/.plugins/org.eclipse.core.resources/.projects/Lab 2/.indexes/d5/0/c4/properties.index
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.cdt.managedbuilder.core.prefs
+.metadata/.plugins/org.eclipse.core.runtime/.settings/org.eclipse.launchbar.core.prefs
+.metadata/.plugins/org.eclipse.debug.ui/launchConfigurationHistory.xml
