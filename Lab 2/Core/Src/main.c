@@ -31,6 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define ITM_Port32(n) (*((volatile unsigned long *) (0xE0000000+4*n)))
+
 
 /* USER CODE END PD */
 
@@ -91,7 +93,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   //
-  GPIO_PinState isPressed;
+  GPIO_PinState buttonState;
+
+  uint16_t triangleValue, sawValue=0;
+  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+  HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+  int flag = 0;
 
 
   /* USER CODE END 2 */
@@ -104,24 +111,59 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+
+	  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, triangleValue);
+	  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_12B_R, sawValue);
+
+	  if(flag == 0){
+		  if (triangleValue < 4095) {
+		  		  triangleValue++;
+		  	  } else {
+		  		flag = 1;
+		  	  }
+	  }else{
+		  if(triangleValue > 0) {
+		  		  triangleValue--;
+		  	} else {
+		  		  flag = 0;
+		  		}
+	  }
+
+
+	  if(sawValue < 4095){
+		  sawValue++;
+	  }else{
+		  sawValue = 0;
+		}
+
+
+
+
+	  HAL_Delay(0.0018);
+
+
+
+
+
+
+
 	  //Get state of button
-	  isPressed =  HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
+	  buttonState =  HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
 
 
-	  	  while(isPressed){
+	  	  while(! buttonState){
 	  		  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 
 	  		  //Set the LED to On
-	  		  	HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+	  		  	HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
 	  		  //Get state of button
-	  		  	isPressed = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
+	  		  buttonState = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
 
 	  	  }
 
 	  //If the button is not pressed, set the LED to off
-	  HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
 
-	  HAL_Delay(50);
   }
   /* USER CODE END 3 */
 }
