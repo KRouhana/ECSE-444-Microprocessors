@@ -21,6 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define ARM_MATH_CM4
+#include "arm_math.h"
 
 /* USER CODE END Includes */
 
@@ -95,7 +97,8 @@ int main(void)
   //
   GPIO_PinState buttonState;
 
-  uint16_t triangleValue, sawValue=0;
+  uint16_t triangleValue, sawValue =0;
+  float sineValue, step = 0;
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
   int flag = 0;
@@ -135,6 +138,11 @@ int main(void)
 	  }else{
 		  sawValue = 0;
 		}
+
+	  sineValue = 4096 * arm_sin_f32(step);
+
+	  step = step + 0.1;
+
 
 
 
