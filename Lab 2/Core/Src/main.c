@@ -76,6 +76,8 @@ void ADC_Voltage_Init(){
 	  ADC_ChannelConfTypeDef sConfig = {0};
 	  sConfig.Channel = ADC_CHANNEL_VREFINT;
 	  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+	  sConfig.Rank = ADC_REGULAR_RANK_1;
+
 	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK){
 		  Error_Handler();
 	  }
@@ -86,6 +88,8 @@ void ADC_Temperature_Init(){
 	ADC_ChannelConfTypeDef sConfig = {0};
 	sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
 	sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+	sConfig.Rank = ADC_REGULAR_RANK_1;
+
 	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK){
 		Error_Handler();
 	}
@@ -96,17 +100,19 @@ void ADC_Temperature_Init(){
  * Formula found in the Chip Document p692
  * @return value is in Volts
 */
-float Voltage_Conversion(uint32_t vrefint_data){
-	float vref = 3.0; //found in datasheet
-	float tmp = vref*(*VREFINT)/vrefint_data;
-	return tmp;
+float Voltage_Conversion(uint32_t raw_ADC_voltage_value){
+
+	return 3000 * (*VREFINT)/ raw_ADC_voltage_value;
 }
 
 /*
  * Formula found in the Chip Document p690
  * @return value is in degrees Celsius
 */
-float Temperature_Conversion(uint32_t ts_data){
+float Temperature_Conversion(uint32_t raw_ADC_temperature_value, float VREF){
+
+	float ts_data = raw_ADC_temperature_value * VREF/3000;
+
 	return (TS_CAL2_TEMP - TS_CAL1_TEMP)/ ((float)*TS_CAL2 - (float)*TS_CAL1) * ((float)ts_data - (float)*TS_CAL1) + 30;
 }
 
@@ -145,15 +151,17 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
-  //
+
   GPIO_PinState buttonState;
 
   uint16_t triangleValue, sawValue =0;
   float sineValue, step = 0;
-  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
-  HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+
   int flag = 0;
 
+
+  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+  HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
 
   /* USER CODE END 2 */
 
@@ -190,7 +198,7 @@ int main(void)
 		  sawValue = 0;
 		}
 
-	  sineValue = 4096 * arm_sin_f32(step);	//have to do  2*pi*f
+	  sineValue = 4096 * arm_sin_f32(step/3490.658);	//have to do  2*pi*f
 
 	  step = step + 0.1;
 
@@ -223,9 +231,7 @@ int main(void)
 
 
 
-
-
-
+	  //Get measure temperature value
 	  ADC_Temperature_Init();
 
 	  HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
@@ -234,13 +240,49 @@ int main(void)
 		  Error_Handler();
 	  }
 
-	  uint32_t adc_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
+	  uint32_t raw_ADC_temperature_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
 	  HAL_ADC_Stop(&hadc1); // Stops conversion and disables the ADC peripherals
 
-	  float temperature_converted = Temperature_Conversion(adc_value );
+
+
+	  //Get voltage reference value
+	  ADC_Voltage_Init();
+
+	  HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
+
+	  if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK){ // Waits for ADC conversion to be done
+		  Error_Handler();
+	  }
+
+	  uint32_t raw_ADC_voltage_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
+	  HAL_ADC_Stop(&hadc1); // Stops conversion and disables the ADC peripherals
 
 
 
+
+	  float VREF = Voltage_Conversion(raw_ADC_voltage_value);
+
+	  float temperature = Temperature_Conversion(raw_ADC_temperature_value, VREF);
+
+
+
+	  int presses = 0;
+
+//	  //Get state of button
+//	  buttonState =  HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
+//
+//  	  if(!buttonState){
+//
+//  		  //Iterate counter for different sounds
+//  		  presses++;
+//
+//  		  //Toggle the LED to next state
+//  		  	HAL_GPIO_TogglePin(LED_2_GPIO_Port, LED_2_Pin);
+//  		  //Get state of button
+//  		  buttonState = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
+//
+//  	  }
+//
 
 
 
@@ -322,11 +364,11 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -346,15 +388,6 @@ static void MX_ADC1_Init(void)
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_VREFINT;
-  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -453,6 +486,10 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+
+
 
 /* USER CODE END 4 */
 
