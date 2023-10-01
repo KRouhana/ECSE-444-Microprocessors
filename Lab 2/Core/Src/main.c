@@ -54,7 +54,18 @@ ADC_HandleTypeDef hadc1;
 
 DAC_HandleTypeDef hdac1;
 
+TIM_HandleTypeDef htim2;
+
 /* USER CODE BEGIN PV */
+
+
+
+//Variable for each wave
+uint16_t triangleValue, sawValue, sineValue = 0;
+
+
+int isIncreasing, soundCounter, x, timer = 0;
+
 
 /* USER CODE END PV */
 
@@ -63,6 +74,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -96,6 +108,21 @@ void ADC_Temperature_Init(){
 
 }
 
+uint32_t getADCValue(){
+	HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
+
+	if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK){ // Waits for ADC conversion to be done
+		  Error_Handler();
+	}
+
+	uint32_t ADC_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
+	HAL_ADC_Stop(&hadc1); // Stops conversion and disables the ADC peripherals
+
+	return ADC_value;
+}
+
+
+
 /*
  * Formula found in the Chip Document p692
  * @return value is in Volts
@@ -115,6 +142,8 @@ float Temperature_Conversion(uint32_t raw_ADC_temperature_value, float VREF){
 
 	return (TS_CAL2_TEMP - TS_CAL1_TEMP)/ ((float)*TS_CAL2 - (float)*TS_CAL1) * ((float)ts_data - (float)*TS_CAL1) + 30;
 }
+
+
 
 
 /* USER CODE END 0 */
@@ -149,19 +178,34 @@ int main(void)
   MX_GPIO_Init();
   MX_DAC1_Init();
   MX_ADC1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
 
+  //Flag for state of button
   GPIO_PinState buttonState;
 
-  uint16_t triangleValue, sawValue =0;
-  float sineValue, step = 0;
+  //Variable to check which state we're in, to check if the button has been pressed once
+  int flag, passedBy = 0;
 
-  int flag = 0;
+  //Variable at program boot
+  int initialState = 1;
+
+  //The output for the DAC
+  uint16_t outputFrequency = 0;
 
 
+  //Launch the DAC channels
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+
+  //Launch the timer
+  HAL_TIM_Base_Start_IT(&htim2);
+
+  //Start with the LED off
+  HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+
+
 
   /* USER CODE END 2 */
 
@@ -173,117 +217,77 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-
-	  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, triangleValue);
-	  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_12B_R, sawValue);
-
-	  if(flag == 0){
-		  if (triangleValue < 4095) {
-		  		  triangleValue++;
-		  	  } else {
-		  		flag = 1;
-		  	  }
-	  }else{
-		  if(triangleValue > 0) {
-		  		  triangleValue--;
-		  	} else {
-		  		  flag = 0;
-		  		}
-	  }
-
-
-	  if(sawValue < 4095){
-		  sawValue++;
-	  }else{
-		  sawValue = 0;
-		}
-
-	  sineValue = 4096 * arm_sin_f32(step/3490.658);	//have to do  2*pi*f
-
-	  step = step + 0.1;
-
-
-
-
-
-	  HAL_Delay(0.0018);
-
-
-
 	  //Get state of button
 	  buttonState =  HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
 
+	  //Check if the button has been pressed
+  	  while(!buttonState){
 
-	  	  while(!buttonState){
-	  		  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+  		  //Switch states
+  		  if(!passedBy){
+  			  flag = !flag;
+  			  passedBy = 1;
+  		  }
 
-	  		  //Set the LED to On
-	  		  	HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
-	  		  //Get state of button
-	  		  buttonState = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
+  		  initialState = 0;
+  		  buttonState = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
 
-	  	  }
+  	  }
 
-	  //If the button is not pressed, set the LED to off
-	  HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
-
-
-
-
-
-	  //Get measure temperature value
-	  ADC_Temperature_Init();
-
-	  HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
-
-	  if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK){ // Waits for ADC conversion to be done
-		  Error_Handler();
-	  }
-
-	  uint32_t raw_ADC_temperature_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
-	  HAL_ADC_Stop(&hadc1); // Stops conversion and disables the ADC peripherals
+  	  passedBy = 0;
 
 
+  	    //Check which state we're in
 
-	  //Get voltage reference value
-	  ADC_Voltage_Init();
+	    //If we just started the program, play a dull sound
+	  	  if(initialState){
 
-	  HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
+	  		  outputFrequency = sawValue;
 
-	  if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) != HAL_OK){ // Waits for ADC conversion to be done
-		  Error_Handler();
-	  }
+	    //If we pressed the button, cycle through sound waves
+	  	  }else if(!flag){
 
-	  uint32_t raw_ADC_voltage_value = HAL_ADC_GetValue(&hadc1); // Retrieve the converted value
-	  HAL_ADC_Stop(&hadc1); // Stops conversion and disables the ADC peripherals
+	  		//Set the LED to Off
+	  		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+
+	  		//Switch between sounds every second
+			switch(soundCounter % 3 ){
+
+				case 1:
+						outputFrequency = sineValue;
+
+				case 2:
+						outputFrequency = sawValue;
+
+				case 0:
+						outputFrequency = triangleValue;
+
+				}
+
+		//If we pressed the button again, change to temperature value
+	  	  }else{
+
+		  //Set the LED to On
+		  HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
+
+		  //Get measure temperature value
+		  ADC_Temperature_Init();
+		  uint32_t raw_ADC_temperature_value = getADCValue(); // Retrieve the converted value
+
+		  //Get voltage reference value
+		  ADC_Voltage_Init();
+		  uint32_t raw_ADC_voltage_value = getADCValue(); // Retrieve the converted value
+
+		  float VREF = Voltage_Conversion(raw_ADC_voltage_value);
+		  float temperature = Temperature_Conversion(raw_ADC_temperature_value, VREF);
+
+		  outputFrequency = temperature * 100;
+
+  		 }
 
 
-
-
-	  float VREF = Voltage_Conversion(raw_ADC_voltage_value);
-
-	  float temperature = Temperature_Conversion(raw_ADC_temperature_value, VREF);
-
-
-
-	  int presses = 0;
-
-//	  //Get state of button
-//	  buttonState =  HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
-//
-//  	  if(!buttonState){
-//
-//  		  //Iterate counter for different sounds
-//  		  presses++;
-//
-//  		  //Toggle the LED to next state
-//  		  	HAL_GPIO_TogglePin(LED_2_GPIO_Port, LED_2_Pin);
-//  		  //Get state of button
-//  		  buttonState = HAL_GPIO_ReadPin(userButton_GPIO_Port, userButton_Pin);
-//
-//  	  }
-//
-
+  	HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, outputFrequency);
+	HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_12B_R, outputFrequency);
 
 
   }
@@ -450,6 +454,51 @@ static void MX_DAC1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 5000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 6;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -488,7 +537,66 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
+/*
+ * The timer interrupts every ~0.29ms (I tried to get a clock cycle of 0.25ms)
+ * The period is 2 ms, which is why the step is 8
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
+	//Debugging
+	//ITM_Port32(31) = timer;
+
+
+	//Get Triangle Value
+	if(isIncreasing == 0){
+		if(triangleValue < 4095) {
+			triangleValue+= 4095/8;
+		}else {
+			isIncreasing = 1;
+			//check this
+			}
+	}else{
+		if(triangleValue > 0) {
+			triangleValue-= 4095/8;
+		}else {
+			isIncreasing = 0;
+		}
+	}
+
+
+	//Get Saw Value
+	if(sawValue < 4095){
+		sawValue+=4095/8;
+	}else{
+		sawValue = 0;
+	}
+
+	//Get Sine Value
+	float sin_wave = arm_sin_f32(x);
+	x+= 6.28319 / 8;
+	if(x >= 6.28319){
+		x -= 6.28319;
+	}
+
+	sineValue = (uint16_t)((sin_wave * 2048) + 2048);
+
+
+	//Keep a counter
+	timer++;
+
+	//When we get to one second, reset the timer counter (T = 29 ms, 1s ~ 3500*29ms)
+	if(timer == 3500){
+		timer = 0;
+		soundCounter++;
+	}
+
+	//When 3 seconds has elapsed, reset the cycle counter
+	if(soundCounter == 4){
+		soundCounter = 0;
+	}
+
+
+}
 
 
 /* USER CODE END 4 */
