@@ -61,10 +61,11 @@ TIM_HandleTypeDef htim2;
 
 
 //Variable for each wave
-uint16_t triangleValue, sawValue, sineValue = 0;
+uint32_t triangleValue, sawValue, sineValue, temperatureValue = 0;
 
+float x, temperatureMeasured = 0;
 
-int isIncreasing, soundCounter, x, timer = 0;
+int isIncreasing, soundCounter, timer = 0;
 
 
 /* USER CODE END PV */
@@ -124,7 +125,7 @@ uint32_t getADCValue(){
 
 
 /*
- * Formula found in the Chip Document p692
+ * Formula found in the Chip Document p
  * @return value is in Volts
 */
 float Voltage_Conversion(uint32_t raw_ADC_voltage_value){
@@ -133,7 +134,7 @@ float Voltage_Conversion(uint32_t raw_ADC_voltage_value){
 }
 
 /*
- * Formula found in the Chip Document p690
+ * Formula found in the Chip Document p
  * @return value is in degrees Celsius
 */
 float Temperature_Conversion(uint32_t raw_ADC_temperature_value, float VREF){
@@ -251,18 +252,21 @@ int main(void)
 	  		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
 
 	  		//Switch between sounds every second
-			switch(soundCounter % 3 ){
+			if(soundCounter == 0){
 
-				case 1:
 						outputFrequency = sineValue;
+			}
 
-				case 2:
+			else if(soundCounter == 1){
 						outputFrequency = sawValue;
+			}
 
-				case 0:
+			else if(soundCounter == 2){
 						outputFrequency = triangleValue;
 
-				}
+			}
+
+
 
 		//If we pressed the button again, change to temperature value
 	  	  }else{
@@ -279,10 +283,11 @@ int main(void)
 		  uint32_t raw_ADC_voltage_value = getADCValue(); // Retrieve the converted value
 
 		  float VREF = Voltage_Conversion(raw_ADC_voltage_value);
-		  float temperature = Temperature_Conversion(raw_ADC_temperature_value, VREF);
 
-		  outputFrequency = temperature * 100;
+		  temperatureMeasured = Temperature_Conversion(raw_ADC_temperature_value, VREF);
 
+
+		  outputFrequency = temperatureValue;
   		 }
 
 
@@ -539,7 +544,7 @@ static void MX_GPIO_Init(void)
 
 /*
  * The timer interrupts every ~0.29ms (I tried to get a clock cycle of 0.25ms)
- * The period is 2 ms, which is why the step is 8
+ * The period is 4 ms, which is why the step is 16
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
@@ -548,10 +553,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 
 	//Get Triangle Value
+	//I'm stopping at 4088 because it's the max int before getting to 4095 using integer division (4095/8 = 511.875 => 511)
 	if(isIncreasing == 0){
-		if(triangleValue < 4095) {
+		if(triangleValue < 4088) {
 			triangleValue+= 4095/8;
-		}else {
+		}else{
 			isIncreasing = 1;
 			//check this
 			}
@@ -565,15 +571,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 
 	//Get Saw Value
-	if(sawValue < 4095){
-		sawValue+=4095/8;
+	//I'm stopping at 4080 because it's the max int before getting to 4095 using integer division (4095/16 = 255.9375 => 255)
+	if(sawValue < 4080){
+		sawValue+=4095/16;
 	}else{
 		sawValue = 0;
 	}
 
+
+	float twopi = 6.28319;
+	float period = 16.0;
+
+	float division = twopi/period;
+
+	x = x + division;
+
 	//Get Sine Value
 	float sin_wave = arm_sin_f32(x);
-	x+= 6.28319 / 8;
+
+
 	if(x >= 6.28319){
 		x -= 6.28319;
 	}
@@ -591,8 +607,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	}
 
 	//When 3 seconds has elapsed, reset the cycle counter
-	if(soundCounter == 4){
+	if(soundCounter == 3){
 		soundCounter = 0;
+	}
+
+
+	if(temperatureValue < 4095){
+		temperatureValue+=4095/(temperatureMeasured);
+	}else{
+		temperatureValue = 0;
 	}
 
 
