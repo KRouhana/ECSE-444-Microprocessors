@@ -59,7 +59,6 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 
 
-
 //Variable for each wave
 uint32_t triangleValue, sawValue, sineValue, temperatureValue = 0;
 
@@ -88,7 +87,7 @@ void ADC_Voltage_Init(){
 	// ADC for voltage by using polling
 	  ADC_ChannelConfTypeDef sConfig = {0};
 	  sConfig.Channel = ADC_CHANNEL_VREFINT;
-	  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+	  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
 	  sConfig.Rank = ADC_REGULAR_RANK_1;
 
 	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK){
@@ -96,11 +95,14 @@ void ADC_Voltage_Init(){
 	  }
 
 }
+
+//ADC_SAMPLETIME_640CYCLES_5
+//ADC_SAMPLETIME_247CYCLES_5
 /* ADC Temperature Initialization */
 void ADC_Temperature_Init(){
 	ADC_ChannelConfTypeDef sConfig = {0};
 	sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
-	sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+	sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
 	sConfig.Rank = ADC_REGULAR_RANK_1;
 
 	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK){
@@ -108,7 +110,7 @@ void ADC_Temperature_Init(){
 	}
 
 }
-
+/* Retrieve ADC Value from channel selected */
 uint32_t getADCValue(){
 	HAL_ADC_Start(&hadc1); // Activates ADC peripheral and starts conversion
 
@@ -126,7 +128,6 @@ uint32_t getADCValue(){
 
 /*
  * Formula found in the Chip Document p
- * @return value is in Volts
 */
 float Voltage_Conversion(uint32_t raw_ADC_voltage_value){
 
@@ -135,7 +136,6 @@ float Voltage_Conversion(uint32_t raw_ADC_voltage_value){
 
 /*
  * Formula found in the Chip Document p
- * @return value is in degrees Celsius
 */
 float Temperature_Conversion(uint32_t raw_ADC_temperature_value, float VREF){
 
@@ -227,6 +227,8 @@ int main(void)
   		  //Switch states
   		  if(!passedBy){
   			  flag = !flag;
+  			  //We pressed the button once, hence we switched states, so don't switch again (this is because sometimes one press can
+  			  //be registered as two or more presses.
   			  passedBy = 1;
   		  }
 
@@ -235,6 +237,7 @@ int main(void)
 
   	  }
 
+  	  //Change back the flag to 0
   	  passedBy = 0;
 
 
@@ -267,7 +270,6 @@ int main(void)
 			}
 
 
-
 		//If we pressed the button again, change to temperature value
 	  	  }else{
 
@@ -286,6 +288,7 @@ int main(void)
 
 		  temperatureMeasured = Temperature_Conversion(raw_ADC_temperature_value, VREF);
 
+		  float temp = temperatureMeasured;
 
 		  outputFrequency = temperatureValue;
   		 }
@@ -393,7 +396,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -543,7 +546,7 @@ static void MX_GPIO_Init(void)
 
 
 /*
- * The timer interrupts every ~0.29ms (I tried to get a clock cycle of 0.25ms)
+ * The timer interrupts every ~0.29ms when i checked with ITM_Port (I tried to get a clock cycle of 0.25ms)
  * The period is 4 ms, which is why the step is 16
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
@@ -559,7 +562,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 			triangleValue+= 4095/8;
 		}else{
 			isIncreasing = 1;
-			//check this
 			}
 	}else{
 		if(triangleValue > 0) {
@@ -579,22 +581,28 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	}
 
 
+	//Get Sine Value
 	float twopi = 6.28319;
 	float period = 16.0;
 
-	float division = twopi/period;
+	x += twopi/period;
 
-	x = x + division;
-
-	//Get Sine Value
 	float sin_wave = arm_sin_f32(x);
 
 
-	if(x >= 6.28319){
-		x -= 6.28319;
+	if(x >= twopi){
+		x -= twopi;
 	}
 
 	sineValue = (uint16_t)((sin_wave * 2048) + 2048);
+
+
+	//Get temperature dependent SawFunction
+	if(temperatureValue < 4095){
+		temperatureValue+=4095/(temperatureMeasured);
+	}else{
+		temperatureValue = 0;
+	}
 
 
 	//Keep a counter
@@ -609,13 +617,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	//When 3 seconds has elapsed, reset the cycle counter
 	if(soundCounter == 3){
 		soundCounter = 0;
-	}
-
-
-	if(temperatureValue < 4095){
-		temperatureValue+=4095/(temperatureMeasured);
-	}else{
-		temperatureValue = 0;
 	}
 
 
