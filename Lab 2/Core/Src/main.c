@@ -98,6 +98,7 @@ void ADC_Voltage_Init(){
 
 //ADC_SAMPLETIME_640CYCLES_5
 //ADC_SAMPLETIME_247CYCLES_5
+
 /* ADC Temperature Initialization */
 void ADC_Temperature_Init(){
 	ADC_ChannelConfTypeDef sConfig = {0};
@@ -599,7 +600,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	//Get temperature dependent SawFunction
 	if(temperatureValue < 4095){
-		temperatureValue+=4095/(temperatureMeasured);
+		temperatureValue+=4095/(temperatureMeasured - 15);
 	}else{
 		temperatureValue = 0;
 	}
