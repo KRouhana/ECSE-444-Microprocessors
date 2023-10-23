@@ -24,6 +24,9 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
+extern DMA_HandleTypeDef hdma_dac1_ch1;
+
+extern DMA_HandleTypeDef hdma_dfsdm1_flt0;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -103,6 +106,24 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(DAC_1_GPIO_Port, &GPIO_InitStruct);
 
+    /* DAC1 DMA Init */
+    /* DAC1_CH1 Init */
+    hdma_dac1_ch1.Instance = DMA1_Channel1;
+    hdma_dac1_ch1.Init.Request = DMA_REQUEST_DAC1_CH1;
+    hdma_dac1_ch1.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_dac1_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_dac1_ch1.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_dac1_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_dac1_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    hdma_dac1_ch1.Init.Mode = DMA_NORMAL;
+    hdma_dac1_ch1.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_dac1_ch1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(hdac,DMA_Handle1,hdma_dac1_ch1);
+
   /* USER CODE BEGIN DAC1_MspInit 1 */
 
   /* USER CODE END DAC1_MspInit 1 */
@@ -131,9 +152,202 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
     */
     HAL_GPIO_DeInit(DAC_1_GPIO_Port, DAC_1_Pin);
 
+    /* DAC1 DMA DeInit */
+    HAL_DMA_DeInit(hdac->DMA_Handle1);
   /* USER CODE BEGIN DAC1_MspDeInit 1 */
 
   /* USER CODE END DAC1_MspDeInit 1 */
+  }
+
+}
+
+static uint32_t HAL_RCC_DFSDM1_CLK_ENABLED=0;
+
+static uint32_t DFSDM1_Init = 0;
+/**
+* @brief DFSDM_Filter MSP Initialization
+* This function configures the hardware resources used in this example
+* @param hdfsdm_filter: DFSDM_Filter handle pointer
+* @retval None
+*/
+void HAL_DFSDM_FilterMspInit(DFSDM_Filter_HandleTypeDef* hdfsdm_filter)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  if(DFSDM1_Init == 0)
+  {
+  /* USER CODE BEGIN DFSDM1_MspInit 0 */
+
+  /* USER CODE END DFSDM1_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_DFSDM1;
+    PeriphClkInit.Dfsdm1ClockSelection = RCC_DFSDM1CLKSOURCE_PCLK;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Peripheral clock enable */
+    HAL_RCC_DFSDM1_CLK_ENABLED++;
+    if(HAL_RCC_DFSDM1_CLK_ENABLED==1){
+      __HAL_RCC_DFSDM1_CLK_ENABLE();
+    }
+
+    __HAL_RCC_GPIOE_CLK_ENABLE();
+    /**DFSDM1 GPIO Configuration
+    PE7     ------> DFSDM1_DATIN2
+    PE9     ------> DFSDM1_CKOUT
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF6_DFSDM1;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN DFSDM1_MspInit 1 */
+
+  /* USER CODE END DFSDM1_MspInit 1 */
+  DFSDM1_Init++;
+  }
+
+    /* DFSDM1 DMA Init */
+    /* DFSDM1_FLT0 Init */
+  if(hdfsdm_filter->Instance == DFSDM1_Filter0){
+    hdma_dfsdm1_flt0.Instance = DMA1_Channel4;
+    hdma_dfsdm1_flt0.Init.Request = DMA_REQUEST_DFSDM1_FLT0;
+    hdma_dfsdm1_flt0.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_dfsdm1_flt0.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_dfsdm1_flt0.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_dfsdm1_flt0.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    hdma_dfsdm1_flt0.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    hdma_dfsdm1_flt0.Init.Mode = DMA_CIRCULAR;
+    hdma_dfsdm1_flt0.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_dfsdm1_flt0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Several peripheral DMA handle pointers point to the same DMA handle.
+     Be aware that there is only one channel to perform all the requested DMAs. */
+    __HAL_LINKDMA(hdfsdm_filter,hdmaInj,hdma_dfsdm1_flt0);
+    __HAL_LINKDMA(hdfsdm_filter,hdmaReg,hdma_dfsdm1_flt0);
+  }
+
+}
+
+/**
+* @brief DFSDM_Channel MSP Initialization
+* This function configures the hardware resources used in this example
+* @param hdfsdm_channel: DFSDM_Channel handle pointer
+* @retval None
+*/
+void HAL_DFSDM_ChannelMspInit(DFSDM_Channel_HandleTypeDef* hdfsdm_channel)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  if(DFSDM1_Init == 0)
+  {
+  /* USER CODE BEGIN DFSDM1_MspInit 0 */
+
+  /* USER CODE END DFSDM1_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_DFSDM1;
+    PeriphClkInit.Dfsdm1ClockSelection = RCC_DFSDM1CLKSOURCE_PCLK;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Peripheral clock enable */
+    HAL_RCC_DFSDM1_CLK_ENABLED++;
+    if(HAL_RCC_DFSDM1_CLK_ENABLED==1){
+      __HAL_RCC_DFSDM1_CLK_ENABLE();
+    }
+
+    __HAL_RCC_GPIOE_CLK_ENABLE();
+    /**DFSDM1 GPIO Configuration
+    PE7     ------> DFSDM1_DATIN2
+    PE9     ------> DFSDM1_CKOUT
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF6_DFSDM1;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN DFSDM1_MspInit 1 */
+
+  /* USER CODE END DFSDM1_MspInit 1 */
+  DFSDM1_Init++;
+  }
+
+}
+
+/**
+* @brief DFSDM_Filter MSP De-Initialization
+* This function freeze the hardware resources used in this example
+* @param hdfsdm_filter: DFSDM_Filter handle pointer
+* @retval None
+*/
+void HAL_DFSDM_FilterMspDeInit(DFSDM_Filter_HandleTypeDef* hdfsdm_filter)
+{
+  DFSDM1_Init-- ;
+  if(DFSDM1_Init == 0)
+    {
+  /* USER CODE BEGIN DFSDM1_MspDeInit 0 */
+
+  /* USER CODE END DFSDM1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_DFSDM1_CLK_DISABLE();
+
+    /**DFSDM1 GPIO Configuration
+    PE7     ------> DFSDM1_DATIN2
+    PE9     ------> DFSDM1_CKOUT
+    */
+    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_7|GPIO_PIN_9);
+
+    /* DFSDM1 DMA DeInit */
+    HAL_DMA_DeInit(hdfsdm_filter->hdmaInj);
+    HAL_DMA_DeInit(hdfsdm_filter->hdmaReg);
+  /* USER CODE BEGIN DFSDM1_MspDeInit 1 */
+
+  /* USER CODE END DFSDM1_MspDeInit 1 */
+  }
+
+}
+
+/**
+* @brief DFSDM_Channel MSP De-Initialization
+* This function freeze the hardware resources used in this example
+* @param hdfsdm_channel: DFSDM_Channel handle pointer
+* @retval None
+*/
+void HAL_DFSDM_ChannelMspDeInit(DFSDM_Channel_HandleTypeDef* hdfsdm_channel)
+{
+  DFSDM1_Init-- ;
+  if(DFSDM1_Init == 0)
+    {
+  /* USER CODE BEGIN DFSDM1_MspDeInit 0 */
+
+  /* USER CODE END DFSDM1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_DFSDM1_CLK_DISABLE();
+
+    /**DFSDM1 GPIO Configuration
+    PE7     ------> DFSDM1_DATIN2
+    PE9     ------> DFSDM1_CKOUT
+    */
+    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_7|GPIO_PIN_9);
+
+  /* USER CODE BEGIN DFSDM1_MspDeInit 1 */
+
+  /* USER CODE END DFSDM1_MspDeInit 1 */
   }
 
 }
