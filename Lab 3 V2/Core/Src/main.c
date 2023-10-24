@@ -22,6 +22,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+
+#define ARM_MATH_CM4
+#include "arm_math.h"
+
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,13 +38,8 @@
 /* USER CODE BEGIN PD */
 
 
+#define LENGTH 64000
 
-#define SaturaLH(N, L, H) (((N)<(L))?(L):(((N)>(H))?(H):(N)))
-
-
-#define LENGTH 16000
-
-int32_t curr_sample = 0;
 
 /* USER CODE END PD */
 
@@ -59,6 +59,22 @@ DMA_HandleTypeDef hdma_dfsdm1_flt0;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+int32_t timer, counter = 0;
+
+int buttonPressed, PlaybackMode, doneRecording = 0;
+int DMAComplete = 1;
+
+int32_t tempData = 0;
+
+int32_t signal[LENGTH];
+uint32_t proccessedSignal[LENGTH];
+
+float x = 0;
+
+uint8_t sin_samples[44];
+uint8_t sin_samples_2[33];
+uint8_t sin_samples_3[22];
+
 
 /* USER CODE END PV */
 
@@ -76,84 +92,204 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-int32_t signal[LENGTH];
-uint32_t proccessedSignal[LENGTH];
-int32_t tempData = 0;
+//Function to calculate sin values
+void getSineValues(){
+
+	// 44 samples at 44kHz -> ~1kHz
+	for(uint8_t i = 0; i < 44; i++)
+	{
+		// scale signal to 80% of possible range (max is 215 ~ 83%)
+		sin_samples[i] = (uint8_t)((arm_sin_f32(x) * 87) + 128);
+		x+= 6.28319 / 44;
+
+	}
+
+  	//33 samples at 44kHz -> ~1.33kHz
+	x = 0;
+	for(uint8_t i = 0; i < 33; i++)
+	{
+		// scale signal to 80% of possible range (max is 215 ~ 83%)
+		sin_samples_2[i] = (uint32_t)((arm_sin_f32(x) * 87) + 128);
+		x+= 6.28319 / 33;
+
+	}
+
+  	//22 samples at 44kHz -> ~2kHz
+	x = 0;
+	for(uint8_t i = 0; i < 22; i++)
+	{
+		// scale signal to 80% of possible range (max is 215 ~ 83%)
+		sin_samples_3[i] = (uint32_t)((arm_sin_f32(x) * 87) + 128);
+		x+= 6.28319 / 22;
+	}
+
+}
+
+//Function to activate the microphone and start sampling
+void recordMode(){
+
+	//Set the LED to on
+	HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
+
+	PlaybackMode = 0;
+	doneRecording = 0;
+
+	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+	HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, signal, LENGTH);
+
+}
+
+//Function to cycle through the sines and the recorded sound
+void playbackMode(){
+
+	//Check if 2 seconds elapsed
+	if(counter == 0 || counter == 1){
+
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &proccessedSignal, LENGTH, DAC_ALIGN_12B_R);
+
+		//Set the LED to on
+		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
+
+		HAL_Delay(2000);
 
 
+	}
+
+	else if(counter == 2 || counter == 3){
+
+
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &sin_samples, 44, DAC_ALIGN_8B_R);
+
+		//Set the LED to off
+		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+
+		HAL_Delay(1000);
+
+	}
+
+	else if(counter == 4 || counter == 5){
+
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &sin_samples_2, 33, DAC_ALIGN_8B_R);
+
+		//Set the LED to on
+		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_SET);
+
+		HAL_Delay(1000);
+
+
+	}
+
+	else if(counter == 6 || counter == 7){
+
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &sin_samples_3, 22, DAC_ALIGN_8B_R);
+
+		//Set the LED to off
+		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+
+		HAL_Delay(1000);
+
+
+	}
+}
 
 
 // callback for button
 void HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 {
-    HAL_GPIO_TogglePin(LED_2_GPIO_Port, LED_2_Pin);
 
-	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+	if(GPIO_Pin == User_Button_Pin){
 
-    HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, signal, LENGTH);
-}
+		//Change states
+		buttonPressed =! buttonPressed;
 
-// callback for timer
-void HAL_DFSDM_FilterRegConvCpltCallback (DFSDM_Filter_HandleTypeDef * hdfsdm_filter)
-{
-	// check to make sure correct callback
-	if(hdfsdm_filter == &hdfsdm1_filter0)
-	{
-		HAL_DFSDM_FilterRegularStop_DMA(hdfsdm_filter);
+		//Activate Recording state:
+		if(buttonPressed){
 
-		// scale 24 bits to 8 bit channel
-		for(int i = 0; i < LENGTH; i++)
-		{
-
-		  tempData = signal[i];
-		  	  tempData = tempData&0xFFFFFF00; //take off first 8bits
-		  	  tempData = tempData>>8; //shift right 8 bits
-		  	  tempData = tempData/65536; //divide by 2^16 to scale to 8 bits
-		  	  tempData = tempData + 128; //bring 0 to 128 to make it 8 bit unsigned
-		  	 // tempData = (tempData *2)/3;
-
-
-
-
-
-			  //tempData += 1073741823;
-			  //tempData = tempData & 0x3FFF00; //for 14 bits value
-
-		  	  //tempData = tempData&0xFFFFFF00;
-		  	  tempData = tempData>>8;
-
-		  	  //tempData +=300000;
-
-		  	  float data = (float) tempData;
-		  			data = data/65536.0;
-
-
-
-			  proccessedSignal[i] = (uint32_t) (data * 2048);
+			recordMode();
 
 		}
 
-		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &proccessedSignal, LENGTH, DAC_ALIGN_12B_R);
-	    HAL_GPIO_TogglePin(LED_2_GPIO_Port, LED_2_Pin);
+		//Playback
+		else{
+
+			//Check if we still are recording
+			if(doneRecording == 1){
+
+				//Enable the playback mode
+				PlaybackMode = 1;
+
+				//Set the LED to off
+				HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
+
+			}
+		}
+	}
+
+
+}
+
+// callback for mic
+void HAL_DFSDM_FilterRegConvCpltCallback (DFSDM_Filter_HandleTypeDef * hdfsdm_filter)
+{
+	// check to make sure correct callback
+	if(hdfsdm_filter == &hdfsdm1_filter0){
+
+		//Stop the DMA
+		HAL_DFSDM_FilterRegularStop_DMA(hdfsdm_filter);
+
+		// scale the 32 bits to 12 bits
+		for(int i = 0; i < LENGTH; i++){
+
+			tempData = signal[i];
+
+			tempData = tempData>>8;
+
+			tempData+= 8388608;
+
+			//best is 256
+			tempData = tempData/2048;
+
+			proccessedSignal[i] = (uint32_t) (tempData);
+
+		}
+
+		doneRecording = 1;
+
+		//Set the LED to off
+		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
 
 	}
 }
 
+//callback for timer
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	// check to ensure timer correct source
 	if(htim->Instance == TIM2)
 	{
-		//HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, signal[curr_sample]); // D7
-//
-//		if(++curr_sample >= 16000)
-//		{
-//			curr_sample = 0;
-//		}
 
+		//1 second elapsed
+		if(++timer >= 44395){
+			timer = 0;
+			counter++;
+		}
+
+		//Increment seconds counter
+		if(counter == 8){
+			counter = 0;
+		}
 
 	}
 }
+
 
 
 /* USER CODE END 0 */
@@ -192,9 +328,12 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+
   // starts timer in interrupt mode
   HAL_TIM_Base_Start_IT(&htim2);
-  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+
+  //Calculate the sin values
+  getSineValues();
 
 
   /* USER CODE END 2 */
@@ -206,6 +345,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+
+	  if(PlaybackMode){
+		  playbackMode();
+	  }
+
+
+
   }
   /* USER CODE END 3 */
 }
@@ -289,7 +436,7 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_SOFTWARE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_ABOVE_80MHZ;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
@@ -324,7 +471,7 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter0.Init.RegularParam.FastMode = ENABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = ENABLE;
   hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter0.Init.FilterParam.Oversampling = 250;
+  hdfsdm1_filter0.Init.FilterParam.Oversampling = 53;
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
   {
@@ -378,7 +525,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 12751;
+  htim2.Init.Period = 2703;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -390,7 +537,7 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {

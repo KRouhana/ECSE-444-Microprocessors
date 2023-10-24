@@ -61,7 +61,7 @@ main-build: Lab\ 3\ V2.elf secondary-outputs
 
 # Tool invocations
 Lab\ 3\ V2.elf Lab\ 3\ V2.map: $(OBJS) $(USER_OBJS) /Users/karl/STM32CubeIDE/ECSE-444/Lab\ 3\ V2/STM32L4S5VITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Lab 3 V2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/Users/karl/STM32CubeIDE/ECSE-444/Lab 3 V2/STM32L4S5VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab 3 V2.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "Lab 3 V2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/Users/karl/STM32CubeIDE/ECSE-444/Lab 3 V2/STM32L4S5VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab 3 V2.map" -Wl,--gc-sections -static -L../Core/Lib --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
