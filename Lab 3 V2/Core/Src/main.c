@@ -266,6 +266,9 @@ void HAL_DFSDM_FilterRegConvCpltCallback (DFSDM_Filter_HandleTypeDef * hdfsdm_fi
 		//Set the LED to off
 		HAL_GPIO_WritePin(LED_2_GPIO_Port, LED_2_Pin, GPIO_PIN_RESET);
 
+		//HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, &proccessedSignal, LENGTH, DAC_ALIGN_12B_R);
+
+
 	}
 }
 
