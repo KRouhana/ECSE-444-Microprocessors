@@ -69,22 +69,34 @@ int16_t gyro[3];
 
 int16_t magneto[3];
 
-uint32_t flashAddresses[2];
+int16_t temp[1];
 
-int16_t temp;
-
-int16_t pressure;
+int16_t pressure[1];
 
 int counter = -1;
 
-int16_t averageGyro[2];
-int16_t averageMagneto[2];
-int16_t averageTemp[2];
-int16_t averagePressure[2];
+int deleting = 0;
+
+int hasPassed = 0;
+
+int gettingAverages = 0;
+
 
 int16_t samplesGyro, samplesMagneto, samplesTemp, samplesPressure = 0;
 
 int16_t xGyroAverage, yGyroAverage, zGyroAverage = 0;
+
+int16_t xMagnetoAverage, yMagnetoAverage, zMagnetoAverage = 0;
+
+int16_t xGyroVariance, yGyroVariance, zGyroVariance = 0;
+
+int16_t xMagnetoVariance, yMagnetoVariance, zMagnetoVariance = 0;
+
+int16_t pressureAverage, temperatureAverage = 0;
+
+int16_t pressureVariance, temperatureVariance = 0;
+
+
 
 
 //Addresses are: 0x00000000, 0x00010000, 0x00020000, 0x00030000, 0x00040000, 0x00050000, 0x00060000, 0x00070000
@@ -105,12 +117,12 @@ void hasButtonBeenPressed(void const * argument);
 /* USER CODE BEGIN PFP */
 
 void Error_Handler(void);
+void deleteBlocks(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 
 /* USER CODE END 0 */
 
@@ -147,60 +159,31 @@ int main(void)
   MX_OCTOSPI1_Init();
   /* USER CODE BEGIN 2 */
 
-
-//  BSP_ACCELERO_Init();
-//
-//  BSP_HSENSOR_Init();
+//Init all the sensors
 
   BSP_GYRO_Init();
-
   BSP_MAGNETO_Init();
-
   BSP_PSENSOR_Init();
-
   BSP_TSENSOR_Init();
 
-  BSP_QSPI_Init();
 
+  //Init the qspi
+  if(BSP_QSPI_Init() != QSPI_OK) {
+	  Error_Handler();
+  }
+
+  //Turn red led off
   HAL_GPIO_WritePin(Red_Led_GPIO_Port, Red_Led_Pin, GPIO_PIN_SET);
 
 
-
-  //Get 8 different addresses for 8 different values to be stored
-
-  	if(BSP_QSPI_Erase_Block(0x00000000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00010000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00020000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00030000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00040000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00050000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00060000) != QSPI_OK){
-  		Error_Handler();
-  	}
-
-  	if(BSP_QSPI_Erase_Block(0x00070000) != QSPI_OK){
-  		Error_Handler();
-  	}
+  //Delete the memory blocks
+  deleteBlocks();
 
 
+  //Say we are ready
+  memset(buffer, 0, 100);
+  sprintf(&buffer, "Ready to go \n");
+  HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 
 
@@ -246,9 +229,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  	memset(buffer, 0, 100);
-	sprintf(&buffer, "Ready to go \n");
-  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+
 
   while (1)
   {
@@ -503,38 +484,281 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
-void getAverages(){
+void getPressureAverage(){
+
+		int16_t pressureArray[samplesPressure]; // Create an array to store the values
+
+		int16_t test[1] = {0};
 
 
-    //populate an array with the max number of sample gotten
-    int16_t tempGyro[samplesGyro * 3];
+		// all the values in pressureArray, can calculate the average
+		pressureAverage = 0;
+		for (int i = 0; i < samplesPressure; i++) {
 
-    if(BSP_QSPI_Read(tempGyro, 0x00000000, samplesGyro * sizeof(gyro)) != QSPI_OK)
-	{
-    	Error_Handler();
-	}
+			if(BSP_QSPI_Read(test, 0x00070000 + sizeof(pressure) * i, sizeof(pressure)) != QSPI_OK)
+			{
+				Error_Handler();
+			}
+
+			pressureArray[i] = test[0];
+
+			pressureAverage += test[0];
+		}
+
+		pressureAverage /= samplesPressure;
 
 
+		//S² = Σ(xi - x̄)² / (n - 1)
+		double sumSquaredDeviations = 0.0;
 
-    //Stop 2 before to not get out of bounds
-    for(int i = 0; i < samplesGyro; i++){
+		for (int i = 0; i < samplesPressure; i++) {
+			  double deviation = pressureArray[i] - pressureAverage;
+			  sumSquaredDeviations += deviation * deviation;
+		}
 
-    	xGyroAverage = xGyroAverage + tempGyro[3*i]; 		//get x values
+		double sampleVariance = sumSquaredDeviations / (samplesPressure - 1);
 
-    	yGyroAverage = yGyroAverage + tempGyro[3*i+1];	//get y values
+		pressureVariance = (int16_t) sampleVariance;
 
-    	zGyroAverage = zGyroAverage + tempGyro[3*i+2];	//get z values
 
-    }
+}
 
-    xGyroAverage = xGyroAverage/samplesGyro;
-    yGyroAverage = yGyroAverage/samplesGyro;
-    zGyroAverage = zGyroAverage/samplesGyro;
+void getTemperatureAverage(){
+
+		int16_t temperatureArray[samplesTemp]; // Create an array to store the values
+
+		int16_t test[1] = {0};
+
+
+		// all the values in pressureArray, can calculate the average
+		temperatureAverage = 0;
+		for (int i = 0; i < samplesTemp; i++) {
+
+			if(BSP_QSPI_Read(test, 0x00060000 + sizeof(temp) * i, sizeof(temp)) != QSPI_OK)
+			{
+				Error_Handler();
+			}
+
+			temperatureArray[i] = test[0];
+
+			temperatureAverage += temperatureArray[i];
+		}
+
+
+		temperatureAverage /= samplesTemp;
+
+		//S² = Σ(xi - x̄)² / (n - 1)
+		double sumSquaredDeviations = 0.0;
+
+		for (int i = 0; i < samplesTemp; i++) {
+		  double deviation = temperatureArray[i] - pressureAverage;
+		  sumSquaredDeviations += deviation * deviation;
+		}
+
+		double sampleVariance = sumSquaredDeviations / (samplesTemp - 1);
+
+		temperatureVariance = (int16_t) sampleVariance;
 
 
 
 }
 
+
+void getGyroAverage(){
+
+    //populate an array with the max number of sample gotten
+    int16_t gyroArray[samplesGyro * 3];
+
+    int16_t test[3];
+
+
+    xGyroAverage = 0;
+    yGyroAverage = 0;
+    zGyroAverage = 0;
+
+    for(int i = 0; i < samplesGyro; i++){
+
+
+    	test[0] = 0;
+    	test[1] = 0;
+    	test[2] = 0;
+
+        if(BSP_QSPI_Read(test, 0x00000000 + i * sizeof(gyro), sizeof(gyro)) != QSPI_OK)
+    	{
+        	Error_Handler();
+    	}
+
+
+    	gyroArray[3*i] = test[0];
+    	gyroArray[3*i + 1] = test[1];
+    	gyroArray[3*i + 2] = test[2];
+
+    	xGyroAverage += test[0]; 	//get x values
+
+    	yGyroAverage += test[1];	//get y values
+
+    	zGyroAverage += test[2];	//get z values
+
+    }
+
+    xGyroAverage /= samplesGyro;
+    yGyroAverage /= samplesGyro;
+    zGyroAverage /= samplesGyro;
+
+
+	//S² = Σ(xi - x̄)² / (n - 1)
+	double XsumSquaredDeviations, YsumSquaredDeviations, ZsumSquaredDeviations = 0.0;
+
+	for (int i = 0; i < samplesGyro; i++) {
+		  double Xdeviation = gyroArray[3*i] - xGyroAverage;
+		  XsumSquaredDeviations += Xdeviation * Xdeviation;
+
+		  double Ydeviation = gyroArray[3*i + 1] - yGyroAverage;
+		  YsumSquaredDeviations += Ydeviation * Ydeviation;
+
+		  double Zdeviation = gyroArray[3*i + 2] - zGyroAverage;
+		  ZsumSquaredDeviations += Zdeviation * Zdeviation;
+	}
+
+	double XsampleVariance = XsumSquaredDeviations / (samplesGyro - 1);
+
+	double YsampleVariance = YsumSquaredDeviations / (samplesGyro - 1);
+
+	double ZsampleVariance = ZsumSquaredDeviations / (samplesGyro - 1);
+
+	xGyroVariance = (int16_t) XsampleVariance;
+	yGyroVariance = (int16_t) YsampleVariance;
+	zGyroVariance = (int16_t) ZsampleVariance;
+
+
+
+
+
+}
+
+void getMagnetoAverage(){
+
+}
+
+void printAllAverages(){
+
+
+	//Pressure
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "\nPressure: Number of samples is: %d, ", samplesPressure);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Average: %d, ", pressureAverage);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Variance: %d \n", pressureVariance);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	//Temperature
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "\nTemperature: Number of samples is: %d, ", samplesTemp);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Average: %d, ", temperatureAverage);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Variance: %d \n", temperatureVariance);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	//Gyro
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "\nGYRO: Number of samples is: %d, ", samplesGyro);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ", xGyroAverage, yGyroAverage, zGyroAverage);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n", xGyroVariance, yGyroVariance, zGyroVariance);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	//Magneto
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "\nMAGNETO: Number of samples is: %d, ", samplesMagneto);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ", xMagnetoAverage, yMagnetoAverage, zMagnetoAverage);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	memset(buffer, 0, 100);
+	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n \n", xMagnetoVariance, yMagnetoVariance, zMagnetoVariance);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+
+	//Delete the memory blocks
+//	deleteBlocks();
+//	samplesGyro = 0;
+//	samplesMagneto = 0;
+//	samplesTemp = 0;
+//	samplesPressure = 0;
+
+
+
+}
+
+//Function to delete blocks at 8 different addresses
+void deleteBlocks(){
+
+		deleting = 1;
+		memset(buffer, 0, 100);
+		sprintf(&buffer, "Deleting blocks...\n");
+		HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+
+	//Get 8 different addresses for 8 different values to be stored
+
+	  	if(BSP_QSPI_Erase_Block(0x00000000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00010000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00020000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00030000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00040000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00050000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00060000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	if(BSP_QSPI_Erase_Block(0x00070000) != QSPI_OK){
+	  		Error_Handler();
+	  	}
+
+	  	memset(buffer, 0, 100);
+		sprintf(&buffer, "Blocks deleted ! \n");
+	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+	  	deleting = 0;
+
+
+
+}
 
 /* USER CODE END 4 */
 
@@ -551,57 +775,62 @@ void readFromSensors(void const * argument)
   /* Infinite loop */
   for(;;)
   {
+	  osDelay(100);
 
 
-	  	BSP_GYRO_GetXYZ(gyro); // (x, y, z)
-
-	  	//Store gyro x,y,z values
-	  	//Use addresses from 0x00000000 to 0x00030000
-	  	if(BSP_QSPI_Write(gyro, 0x00000000 + sizeof(gyro) * samplesGyro , sizeof(gyro)) != QSPI_OK){
-	  		Error_Handler();
-	  	}
-	  	else{
-	  		samplesGyro++;
-	  	}
+	  	if(!deleting && !gettingAverages){
 
 
-	  	BSP_MAGNETO_GetXYZ(magneto); // (x, y, z)
+			BSP_GYRO_GetXYZ(gyro); // (x, y, z)
 
 
-	  	//Store magneto x,y,z values
-	  	//Use addresses from 0x00030000 to 0x00060000
-	  	if(BSP_QSPI_Write(magneto, 0x00030000 + sizeof(magneto) * samplesMagneto, sizeof(magneto)) != QSPI_OK){
-	  		Error_Handler();
-	  	}
-	  	else{
-	  		samplesMagneto++;
-	  	}
+			//Store gyro x,y,z values
+			//Use addresses from 0x00000000 to 0x00030000
+			if(BSP_QSPI_Write(gyro, 0x00000000 + sizeof(gyro) * samplesGyro , sizeof(gyro)) != QSPI_OK){
+				Error_Handler();
+			}
+			else{
+				samplesGyro++;
+			}
+
+
+			BSP_MAGNETO_GetXYZ(magneto); // (x, y, z)
+
+			//Store magneto x,y,z values
+			//Use addresses from 0x00030000 to 0x00060000
+			if(BSP_QSPI_Write(magneto, 0x00030000 + sizeof(magneto) * samplesMagneto, sizeof(magneto)) != QSPI_OK){
+				Error_Handler();
+			}
+			else{
+				samplesMagneto++;
+			}
 
 
 
-	  	temp = BSP_TSENSOR_ReadTemp();
-
-	  	//Store temperature values
-	  	if(BSP_QSPI_Write(temp, 0x00060000 + sizeof(temp) * samplesTemp, sizeof(temp)) != QSPI_OK){
-	  		Error_Handler();
-	  	}else{
-	  		samplesTemp++;
-
-	  	}
+			temp[0] = BSP_TSENSOR_ReadTemp();
 
 
-	  	pressure = BSP_PSENSOR_ReadPressure();
+			//Store temperature values
+			if(BSP_QSPI_Write(temp, 0x00060000 + sizeof(temp) * samplesTemp, sizeof(temp)) != QSPI_OK){
+				Error_Handler();
+			}else{
+				samplesTemp++;
 
-	  	//Store pressure values
-	  	if(BSP_QSPI_Write(temp, 0x00070000 + sizeof(pressure) * samplesPressure, sizeof(pressure)) != QSPI_OK){
-	  		Error_Handler();
-	  	}else{
-	  		samplesPressure++;
-
-	  	}
+			}
 
 
-	      osDelay(100);
+		   pressure[0] = BSP_PSENSOR_ReadPressure();
+
+			//Store pressure values
+			if(BSP_QSPI_Write(pressure, 0x00070000 + sizeof(pressure)*samplesPressure, sizeof(pressure)) != QSPI_OK){
+				Error_Handler();
+			}else{
+				samplesPressure++;
+
+			}
+
+	 }
+
 
   }
   /* USER CODE END 5 */
@@ -617,10 +846,11 @@ void readFromSensors(void const * argument)
 void transmitViaUART(void const * argument)
 {
   /* USER CODE BEGIN transmitViaUART */
-	int hasPassed = 0;
   /* Infinite loop */
   for(;;)
   {
+      osDelay(100);
+
 	  memset(buffer, 0, 100);
 
 	  	if(counter == 0){
@@ -653,7 +883,7 @@ void transmitViaUART(void const * argument)
 
 	  		hasPassed = 0;
 
-	  		sprintf(&buffer, "Temperature: %d \n", (int) temp);
+	  		sprintf(&buffer, "Temperature: %d \n", (int) temp[0]);
 	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
 
 	  	}
@@ -662,23 +892,41 @@ void transmitViaUART(void const * argument)
 
 	  		hasPassed = 0;
 
-	  		sprintf(&buffer, "Pressure: %d \n", (int) pressure);
+	  		sprintf(&buffer, "Pressure: %d \n", (int) pressure[0]);
 	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
-
 
 	  	}
 
 	  	else if(!hasPassed && counter == 4 ){
 
-	  		getAverages();
-	  		sprintf(&buffer, "GYRO Average: x: %d, y: %d, z: %d \nNumber of samples is: %d \n", (int) xGyroAverage,(int) yGyroAverage,(int) zGyroAverage, (int) samplesGyro);
-	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+	  		osDelay(100);
+
+			memset(buffer, 0, 100);
+			sprintf(&buffer, "Getting averages \n");
+			HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+			gettingAverages = 1;
+
+			getGyroAverage();
+			getTemperatureAverage();
+			getPressureAverage();
+			getMagnetoAverage();
+
+			printAllAverages();
+
+			gettingAverages = 0;
+
+
 	  	  	hasPassed = 1;
+
+	  	  	osDelay(500);
+
+	  	  	counter = 0;
 
 	  	}
 
-	      osDelay(100);
-	    }
+
+	}
   /* USER CODE END transmitViaUART */
 }
 
@@ -692,30 +940,31 @@ void transmitViaUART(void const * argument)
 void hasButtonBeenPressed(void const * argument)
 {
   /* USER CODE BEGIN hasButtonBeenPressed */
-	int was_pressed = 0;
+	int passedBy = 0;
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
+
+		  osDelay(10);
+
 		GPIO_PinState button_state = HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin);
 
+		 while(button_state == GPIO_PIN_RESET){ // button pressed (when button pushed, grounded)
 
-		 if(button_state == GPIO_PIN_RESET) // button pressed (when button pushed, grounded)
-		    {
-		    	if(was_pressed == 0) // ensure that do not repeat;
-		    	{
+			 // ensure that do not repeat;
+		    	if(!passedBy){
 		    		counter = (counter + 1) % 5;
+		    		passedBy = 1;
 		    	}
-		    	was_pressed = 1;
-		    }
-		    else if(button_state == GPIO_PIN_SET)
-		    {
-		    	was_pressed = 0;
-		    }
+
+		 button_state = HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin);
 
 
+		 }
 
-	    osDelay(10);
+		passedBy = 0;
+
 	  }
   /* USER CODE END hasButtonBeenPressed */
 }
@@ -750,6 +999,11 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+
+  memset(buffer, 0, 100);
+  sprintf(&buffer, "Error at error handler \n");
+  HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
   HAL_GPIO_WritePin(Red_Led_GPIO_Port, Red_Led_Pin, GPIO_PIN_RESET);
   __BKPT();
 
