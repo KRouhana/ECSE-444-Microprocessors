@@ -63,7 +63,7 @@ osThreadId UART_TaskHandle;
 osThreadId buttonPress_TasHandle;
 /* USER CODE BEGIN PV */
 
-char buffer[100];
+char buffer[200];
 
 int16_t gyro[3];
 
@@ -81,22 +81,22 @@ int hasPassed = 0;
 
 int gettingAverages = 0;
 
-
-int16_t samplesGyro, samplesMagneto, samplesTemp, samplesPressure = 0;
-
-int16_t xGyroAverage, yGyroAverage, zGyroAverage = 0;
-
-int16_t xMagnetoAverage, yMagnetoAverage, zMagnetoAverage = 0;
-
-int16_t xGyroVariance, yGyroVariance, zGyroVariance = 0;
-
-int16_t xMagnetoVariance, yMagnetoVariance, zMagnetoVariance = 0;
-
-int16_t pressureAverage, temperatureAverage = 0;
-
-int16_t pressureVariance, temperatureVariance = 0;
+int pleasePrint = 0;
 
 
+int32_t samplesGyro= 0, samplesMagneto= 0, samplesTemp= 0, samplesPressure = 0;
+
+int32_t xGyroAverage= 0, yGyroAverage= 0, zGyroAverage = 0;
+
+int32_t xMagnetoAverage= 0, yMagnetoAverage= 0, zMagnetoAverage = 0;
+
+int32_t xGyroVariance = 0, yGyroVariance = 0, zGyroVariance = 0;
+
+int32_t xMagnetoVariance = 0, yMagnetoVariance = 0, zMagnetoVariance = 0;
+
+int32_t pressureAverage = 0, temperatureAverage = 0;
+
+int32_t pressureVariance = 0, temperatureVariance = 0;
 
 
 //Addresses are: 0x00000000, 0x00010000, 0x00020000, 0x00030000, 0x00040000, 0x00050000, 0x00060000, 0x00070000
@@ -181,7 +181,7 @@ int main(void)
 
 
   //Say we are ready
-  memset(buffer, 0, 100);
+  memset(buffer, 0, 200);
   sprintf(&buffer, "Ready to go \n");
   HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
@@ -211,11 +211,11 @@ int main(void)
   readSensors_TasHandle = osThreadCreate(osThread(readSensors_Tas), NULL);
 
   /* definition and creation of UART_Task */
-  osThreadDef(UART_Task, transmitViaUART, osPriorityIdle, 0, 128);
+  osThreadDef(UART_Task, transmitViaUART, osPriorityNormal, 0, 256);
   UART_TaskHandle = osThreadCreate(osThread(UART_Task), NULL);
 
   /* definition and creation of buttonPress_Tas */
-  osThreadDef(buttonPress_Tas, hasButtonBeenPressed, osPriorityIdle, 0, 128);
+  osThreadDef(buttonPress_Tas, hasButtonBeenPressed, osPriorityNormal, 0, 128);
   buttonPress_TasHandle = osThreadCreate(osThread(buttonPress_Tas), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -488,6 +488,8 @@ void getPressureAverage(){
 
 		int16_t pressureArray[samplesPressure]; // Create an array to store the values
 
+		memset(pressureArray, 0, samplesPressure);
+
 		int16_t test[1] = {0};
 
 
@@ -526,6 +528,8 @@ void getPressureAverage(){
 void getTemperatureAverage(){
 
 		int16_t temperatureArray[samplesTemp]; // Create an array to store the values
+		memset(temperatureArray, 0, samplesTemp);
+
 
 		int16_t test[1] = {0};
 
@@ -568,6 +572,7 @@ void getGyroAverage(){
 
     //populate an array with the max number of sample gotten
     int16_t gyroArray[samplesGyro * 3];
+	memset(gyroArray, 0, samplesGyro * 3);
 
     int16_t test[3];
 
@@ -626,9 +631,9 @@ void getGyroAverage(){
 
 	double ZsampleVariance = ZsumSquaredDeviations / (samplesGyro - 1);
 
-	xGyroVariance = (int16_t) XsampleVariance;
-	yGyroVariance = (int16_t) YsampleVariance;
-	zGyroVariance = (int16_t) ZsampleVariance;
+	xGyroVariance = (int32_t) XsampleVariance;
+	yGyroVariance = (int32_t) YsampleVariance;
+	zGyroVariance = (int32_t) ZsampleVariance;
 
 
 
@@ -638,71 +643,190 @@ void getGyroAverage(){
 
 void getMagnetoAverage(){
 
+    //populate an array with the max number of sample gotten
+    int16_t magnetoArray[samplesMagneto * 3];
+	memset(magnetoArray, 0, samplesMagneto * 3);
+
+
+    int16_t test[3];
+
+
+    xMagnetoAverage = 0;
+    yMagnetoAverage = 0;
+    zMagnetoAverage = 0;
+
+    for(int i = 0; i < samplesMagneto; i++){
+
+
+    	test[0] = 0;
+    	test[1] = 0;
+    	test[2] = 0;
+
+        if(BSP_QSPI_Read(test, 0x00030000 + i * sizeof(magneto), sizeof(magneto)) != QSPI_OK)
+    	{
+        	Error_Handler();
+    	}
+
+
+        magnetoArray[3*i] = test[0];
+        magnetoArray[3*i + 1] = test[1];
+        magnetoArray[3*i + 2] = test[2];
+
+        xMagnetoAverage += test[0]; 	//get x values
+
+    	yMagnetoAverage += test[1];	//get y values
+
+    	zMagnetoAverage += test[2];	//get z values
+
+    }
+
+    xMagnetoAverage /= samplesGyro;
+    yMagnetoAverage /= samplesGyro;
+    zMagnetoAverage /= samplesGyro;
+
+
+	//S² = Σ(xi - x̄)² / (n - 1)
+	double XsumSquaredDeviations, YsumSquaredDeviations, ZsumSquaredDeviations = 0.0;
+
+	for (int i = 0; i < samplesGyro; i++) {
+		  double Xdeviation = magnetoArray[3*i] - xMagnetoAverage;
+		  XsumSquaredDeviations += Xdeviation * Xdeviation;
+
+		  double Ydeviation = magnetoArray[3*i + 1] - xMagnetoAverage;
+		  YsumSquaredDeviations += Ydeviation * Ydeviation;
+
+		  double Zdeviation = magnetoArray[3*i + 2] - xMagnetoAverage;
+		  ZsumSquaredDeviations += Zdeviation * Zdeviation;
+	}
+
+	double XsampleVariance = XsumSquaredDeviations / (samplesMagneto - 1);
+
+	double YsampleVariance = YsumSquaredDeviations / (samplesMagneto - 1);
+
+	double ZsampleVariance = ZsumSquaredDeviations / (samplesMagneto - 1);
+
+	xMagnetoVariance = (int32_t) XsampleVariance;
+	yMagnetoVariance = (int32_t) YsampleVariance;
+	zMagnetoVariance = (int32_t) ZsampleVariance;
+
+
 }
 
 void printAllAverages(){
 
 
-	//Pressure
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "\nPressure: Number of samples is: %d, ", samplesPressure);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//	//Pressure
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "\nPressure: Number of samples is: %d, ", (int)samplesPressure);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Average: %d, ", (int)pressureAverage);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Variance: %d \n", (int)pressureVariance);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	//Temperature
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "\nTemperature: Number of samples is: %d, ", (int)samplesTemp);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Average: %d, ",(int) temperatureAverage);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Variance: %d \n",(int) temperatureVariance);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	//Gyro
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "\nGYRO: Number of samples is: %d, ",(int) samplesGyro);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ",(int) xGyroAverage,(int) yGyroAverage,(int) zGyroAverage);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n",(int) xGyroVariance, (int)yGyroVariance,(int) zGyroVariance);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	//Magneto
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "\nMAGNETO: Number of samples is: %d, ",(int) samplesMagneto);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ", (int)xMagnetoAverage, (int)yMagnetoAverage,(int) zMagnetoAverage);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+//
+//	memset(buffer, 0, 100);
+//	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n \n",(int) xMagnetoVariance,(int) yMagnetoVariance,(int) zMagnetoVariance);
+//	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Average: %d, ", pressureAverage);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Variance: %d \n", pressureVariance);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+	memset(buffer, 0, 200);
+	// Pressure
+	strcpy(buffer, "\nPressure: Number of samples is: ");
+	char samplesPressureStr[20]; // Assuming a reasonable buffer size for the number
+	sprintf(samplesPressureStr, "%d, ", (int)samplesPressure);
+	strcat(buffer, samplesPressureStr);
+	sprintf(samplesPressureStr, "Average: %d, ", (int)pressureAverage);
+	strcat(buffer, samplesPressureStr);
+	sprintf(samplesPressureStr, "Variance: %d \n", (int)pressureVariance);
+	strcat(buffer, samplesPressureStr);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, strlen(buffer), 5000);
 
-	//Temperature
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "\nTemperature: Number of samples is: %d, ", samplesTemp);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+	memset(buffer, 0, 200);
+	// Temperature
+	strcpy(buffer, "\nTemperature: Number of samples is: ");
+	char samplesTempStr[20];
+	sprintf(samplesTempStr, "%d, ", (int)samplesTemp);
+	strcat(buffer, samplesTempStr);
+	sprintf(samplesTempStr, "Average: %d, ", (int)temperatureAverage);
+	strcat(buffer, samplesTempStr);
+	sprintf(samplesTempStr, "Variance: %d \n", (int)temperatureVariance);
+	strcat(buffer, samplesTempStr);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, strlen(buffer), 5000);
 
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Average: %d, ", temperatureAverage);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+	memset(buffer, 0, 200);
+	// Gyro
+	strcpy(buffer, "\nGYRO: Number of samples is: ");
+	char samplesGyroStr[20];
+	sprintf(samplesGyroStr, "%d, ", (int)samplesGyro);
+	strcat(buffer, samplesGyroStr);
+	sprintf(samplesGyroStr, "Average: x: %d, y: %d, z: %d, ", (int)xGyroAverage, (int)yGyroAverage, (int)zGyroAverage);
+	strcat(buffer, samplesGyroStr);
+	sprintf(samplesGyroStr, "Variance: x: %d, y: %d, z: %d \n", (int)xGyroVariance, (int)yGyroVariance, (int)zGyroVariance);
+	strcat(buffer, samplesGyroStr);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, strlen(buffer), 5000);
 
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Variance: %d \n", temperatureVariance);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	//Gyro
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "\nGYRO: Number of samples is: %d, ", samplesGyro);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ", xGyroAverage, yGyroAverage, zGyroAverage);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n", xGyroVariance, yGyroVariance, zGyroVariance);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	//Magneto
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "\nMAGNETO: Number of samples is: %d, ", samplesMagneto);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Average: x: %d, y: %d, z: %d, ", xMagnetoAverage, yMagnetoAverage, zMagnetoAverage);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
-	memset(buffer, 0, 100);
-	sprintf(&buffer, "Variance: x: %d, y: %d, z: %d \n \n", xMagnetoVariance, yMagnetoVariance, zMagnetoVariance);
-	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+	memset(buffer, 0, 200);
+	// Magneto
+	strcpy(buffer, "\nMAGNETO: Number of samples is: ");
+	char samplesMagnetoStr[20];
+	sprintf(samplesMagnetoStr, "%d, ", (int)samplesMagneto);
+	strcat(buffer, samplesMagnetoStr);
+	sprintf(samplesMagnetoStr, "Average: x: %d, y: %d, z: %d, ", (int)xMagnetoAverage, (int)yMagnetoAverage, (int)zMagnetoAverage);
+	strcat(buffer, samplesMagnetoStr);
+	sprintf(samplesMagnetoStr, "Variance: x: %d, y: %d, z: %d \n \n", (int)xMagnetoVariance, (int)yMagnetoVariance, (int)zMagnetoVariance);
+	strcat(buffer, samplesMagnetoStr);
+	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, strlen(buffer), 5000);
 
 
-	//Delete the memory blocks
+//Delete the memory blocks
 //	deleteBlocks();
 //	samplesGyro = 0;
 //	samplesMagneto = 0;
 //	samplesTemp = 0;
 //	samplesPressure = 0;
 
+	 xGyroVariance = 0, yGyroVariance = 0, zGyroVariance = 0;
+
+	 xMagnetoVariance = 0, yMagnetoVariance = 0, zMagnetoVariance = 0;
 
 
 }
@@ -711,10 +835,9 @@ void printAllAverages(){
 void deleteBlocks(){
 
 		deleting = 1;
-		memset(buffer, 0, 100);
+		memset(buffer, 0, 200);
 		sprintf(&buffer, "Deleting blocks...\n");
 		HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
-
 
 	//Get 8 different addresses for 8 different values to be stored
 
@@ -750,13 +873,11 @@ void deleteBlocks(){
 	  		Error_Handler();
 	  	}
 
-	  	memset(buffer, 0, 100);
+	  	memset(buffer, 0, 200);
 		sprintf(&buffer, "Blocks deleted ! \n");
 	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 	  	deleting = 0;
-
-
 
 }
 
@@ -776,7 +897,6 @@ void readFromSensors(void const * argument)
   for(;;)
   {
 	  osDelay(100);
-
 
 	  	if(!deleting && !gettingAverages){
 
@@ -806,9 +926,7 @@ void readFromSensors(void const * argument)
 			}
 
 
-
 			temp[0] = BSP_TSENSOR_ReadTemp();
-
 
 			//Store temperature values
 			if(BSP_QSPI_Write(temp, 0x00060000 + sizeof(temp) * samplesTemp, sizeof(temp)) != QSPI_OK){
@@ -822,12 +940,13 @@ void readFromSensors(void const * argument)
 		   pressure[0] = BSP_PSENSOR_ReadPressure();
 
 			//Store pressure values
-			if(BSP_QSPI_Write(pressure, 0x00070000 + sizeof(pressure)*samplesPressure, sizeof(pressure)) != QSPI_OK){
+			if(BSP_QSPI_Write(pressure, 0x00070000 + sizeof(pressure) * samplesPressure, sizeof(pressure)) != QSPI_OK){
 				Error_Handler();
 			}else{
 				samplesPressure++;
 
 			}
+
 
 	 }
 
@@ -849,9 +968,9 @@ void transmitViaUART(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-      osDelay(100);
+      osDelay(200);
 
-	  memset(buffer, 0, 100);
+
 
 	  	if(counter == 0){
 
@@ -861,39 +980,37 @@ void transmitViaUART(void const * argument)
 	  		int y = gyro[1];
 	  		int z = gyro[2];
 
+	  		memset(buffer, 0, 200);
 	  		sprintf(&buffer, "GYRO: x: %d, y: %d, z: %d \n", x,y,z);
-	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 	  	}
 
 	  	else if(counter == 1){
 
-	  		hasPassed = 0;
-
 	  		int x = magneto[0];
 	  		int y = magneto[1];
 	  		int z = magneto[2];
 
+	  		memset(buffer, 0, 200);
 	  		sprintf(&buffer, "Magneto: x: %d, y: %d, z: %d \n", x,y,z);
-	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 	  	}
 
 	  	else if(counter == 2){
 
-	  		hasPassed = 0;
-
+	  		memset(buffer, 0, 200);
 	  		sprintf(&buffer, "Temperature: %d \n", (int) temp[0]);
-	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 	  	}
 
 	  	else if(counter == 3){
 
-	  		hasPassed = 0;
-
+	  		memset(buffer, 0, 200);
 	  		sprintf(&buffer, "Pressure: %d \n", (int) pressure[0]);
-	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, 100, 5000);
+	  	  	HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 	  	}
 
@@ -901,28 +1018,37 @@ void transmitViaUART(void const * argument)
 
 	  		osDelay(100);
 
-			memset(buffer, 0, 100);
+			memset(buffer, 0, 200);
 			sprintf(&buffer, "Getting averages \n");
 			HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
 
 			gettingAverages = 1;
-
+			//osDelay(10);
 			getGyroAverage();
-			getTemperatureAverage();
-			getPressureAverage();
+			//osDelay(10);
 			getMagnetoAverage();
+			//osDelay(10);
+			getTemperatureAverage();
+			//osDelay(10);
+			getPressureAverage();
 
+			//osDelay(10);
 			printAllAverages();
+			//osDelay(10);
+
+	  	  	hasPassed = 1;
+
+			memset(buffer, 0, 200);
+			sprintf(&buffer, "Done averages. \n");
+			HAL_UART_Transmit(&huart1, (uint8_t*) buffer, sizeof(buffer), 5000);
+
+
+	  	  	osDelay(500);
 
 			gettingAverages = 0;
 
 
-	  	  	hasPassed = 1;
-
-	  	  	osDelay(500);
-
-	  	  	counter = 0;
-
+	  	  	//counter = 0;
 	  	}
 
 
@@ -947,6 +1073,7 @@ void hasButtonBeenPressed(void const * argument)
 	  {
 
 		  osDelay(10);
+
 
 		GPIO_PinState button_state = HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin);
 
