@@ -11,7 +11,7 @@
 ../Core/Src/main.c:715:6:printAllAverages	104	static
 ../Core/Src/main.c:835:6:deleteBlocks	8	static
 ../Core/Src/main.c:893:6:readFromSensors	16	static
-../Core/Src/main.c:965:6:transmitViaUART	48	static
-../Core/Src/main.c:1066:6:hasButtonBeenPressed	24	static
-../Core/Src/main.c:1107:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Core/Src/main.c:1124:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:969:6:transmitViaUART	48	static
+../Core/Src/main.c:1070:6:hasButtonBeenPressed	24	static
+../Core/Src/main.c:1111:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:1128:6:Error_Handler	8	static,ignoring_inline_asm

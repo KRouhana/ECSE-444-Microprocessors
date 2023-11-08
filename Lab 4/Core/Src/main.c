@@ -901,53 +901,57 @@ void readFromSensors(void const * argument)
 	  	if(!deleting && !gettingAverages){
 
 
-			BSP_GYRO_GetXYZ(gyro); // (x, y, z)
+	  		if(counter == 0){
+	  			BSP_GYRO_GetXYZ(gyro); // (x, y, z)
 
-
-			//Store gyro x,y,z values
-			//Use addresses from 0x00000000 to 0x00030000
-			if(BSP_QSPI_Write(gyro, 0x00000000 + sizeof(gyro) * samplesGyro , sizeof(gyro)) != QSPI_OK){
-				Error_Handler();
-			}
-			else{
-				samplesGyro++;
-			}
-
-
-			BSP_MAGNETO_GetXYZ(magneto); // (x, y, z)
-
-			//Store magneto x,y,z values
-			//Use addresses from 0x00030000 to 0x00060000
-			if(BSP_QSPI_Write(magneto, 0x00030000 + sizeof(magneto) * samplesMagneto, sizeof(magneto)) != QSPI_OK){
-				Error_Handler();
-			}
-			else{
-				samplesMagneto++;
+				//Store gyro x,y,z values
+				//Use addresses from 0x00000000 to 0x00030000
+				if(BSP_QSPI_Write(gyro, 0x00000000 + sizeof(gyro) * samplesGyro , sizeof(gyro)) != QSPI_OK){
+					Error_Handler();
+				}
+				else{
+					samplesGyro++;
+				}
 			}
 
+	  		else if(counter == 1){
+				BSP_MAGNETO_GetXYZ(magneto); // (x, y, z)
 
-			temp[0] = BSP_TSENSOR_ReadTemp();
+				//Store magneto x,y,z values
+				//Use addresses from 0x00030000 to 0x00060000
+				if(counter == 1 && BSP_QSPI_Write(magneto, 0x00030000 + sizeof(magneto) * samplesMagneto, sizeof(magneto)) != QSPI_OK){
+					Error_Handler();
+				}
+				else{
+					samplesMagneto++;
+				}
+	  		}
 
-			//Store temperature values
-			if(BSP_QSPI_Write(temp, 0x00060000 + sizeof(temp) * samplesTemp, sizeof(temp)) != QSPI_OK){
-				Error_Handler();
-			}else{
-				samplesTemp++;
+	  		else if(counter == 2){
 
-			}
+				temp[0] = BSP_TSENSOR_ReadTemp();
 
+				//Store temperature values
+				if(counter == 2 && BSP_QSPI_Write(temp, 0x00060000 + sizeof(temp) * samplesTemp, sizeof(temp)) != QSPI_OK){
+					Error_Handler();
+				}else{
+					samplesTemp++;
 
-		   pressure[0] = BSP_PSENSOR_ReadPressure();
+				}
+	  		}
 
-			//Store pressure values
-			if(BSP_QSPI_Write(pressure, 0x00070000 + sizeof(pressure) * samplesPressure, sizeof(pressure)) != QSPI_OK){
-				Error_Handler();
-			}else{
-				samplesPressure++;
+	  		else if(counter == 3){
+			   pressure[0] = BSP_PSENSOR_ReadPressure();
 
-			}
+				//Store pressure values
+				if(counter == 3 && BSP_QSPI_Write(pressure, 0x00070000 + sizeof(pressure) * samplesPressure, sizeof(pressure)) != QSPI_OK){
+					Error_Handler();
+				}else{
+					samplesPressure++;
 
+				}
 
+	  		}
 	 }
 
 
