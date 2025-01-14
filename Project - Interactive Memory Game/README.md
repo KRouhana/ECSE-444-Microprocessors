@@ -1,4 +1,5 @@
 The project implemented an **interactive memory game** that utilizes an accelerometer to detect physical movements and a speaker to provide auditory feedback. The game generates sequences of tones corresponding to up or down movements, which the player must replicate by moving the device. High scores are stored in flash memory, and game instructions and results are communicated via UART and audio recordings. Audio compression is employed to optimize flash memory usage for voice instructions.
+<img width="621" alt="Fig 1" src="https://github.com/user-attachments/assets/70f750fb-dd2d-4490-b742-88542186c545" />
 
 ---
 
@@ -8,16 +9,20 @@ The project implemented an **interactive memory game** that utilizes an accelero
    - Reads and calibrates acceleration values to detect up and down movements.
    - Uses defined thresholds to ensure accurate detection and avoid false positives.
    - **Below** shows accelerometer readings for a sequence of up-down-down-up movements, where all movements were correctly detected using activation and deactivation thresholds.
-   
+
+<img width="499" alt="Screenshot 2025-01-14 at 11 39 57 AM" src="https://github.com/user-attachments/assets/b9469a91-ad05-41a0-bb19-44d4604e23d6" />
+
 
 2. **Audio Feedback with Compression:**
    - Uses a DAC and speaker to play tones and voice instructions.
    - Implements a custom compression algorithm to reduce the storage size of voice recordings.
    - **Below** shows the output values after compression and decompression relative to input values, showing accurate recovery of compressed audio data.
    
+<img width="506" alt="Fig 4" src="https://github.com/user-attachments/assets/3a27a454-7bb4-477e-967f-360d4a6d2417" />
 
-   - **Beloow** shows the absolute error introduced by the compression algorithm, which remains minimal and does not degrade audio quality perceptibly.
+   - **Below** shows the absolute error introduced by the compression algorithm, which remains minimal and does not degrade audio quality perceptibly.
    
+<img width="474" alt="Fig 5" src="https://github.com/user-attachments/assets/d7504eef-a587-476a-970c-3bcc9f730a0d" />
 
 3. **Game Logic and User Interaction:**
    - Increases difficulty (longer tone sequences) upon successful user inputs and resets the game on errors.
@@ -28,6 +33,7 @@ The project implemented an **interactive memory game** that utilizes an accelero
    - Estimates velocity along the z-axis by integrating accelerometer readings.
    - **Below** shows the velocity drift at rest and after movements, attributed to calibration inaccuracies and gain differences between accelerometer axes.
    
+<img width="519" alt="Fig 6" src="https://github.com/user-attachments/assets/e69ee1d7-8df7-4f2f-b6a2-ea389e7dd601" />
 
 ---
 
